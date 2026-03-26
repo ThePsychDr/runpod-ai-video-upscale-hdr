@@ -77,18 +77,8 @@ RUN pip install --no-cache-dir --no-deps \
     runpod \
     boto3
 
-# torch 2.9.1 is pre-installed in the base image with CUDA 12.8.
-# torchvision must be installed AFTER the big pip install above — basicsr's
-# build backend downloads torch/torchvision into its isolated build env, and
-# the subsequent pip resolver silently evicts the +cu128 local version.
-# Install + verify + create shim in one step so nothing can interfere.
-RUN pip install --no-cache-dir --no-deps torchvision==0.24.1+cu128 \
-    --index-url https://download.pytorch.org/whl/cu128 && \
-    python3 -c "import torchvision; print(f'torchvision {torchvision.__version__} installed')" && \
-    SITE=$(python3 -c "import torchvision,os; print(os.path.dirname(torchvision.__file__))") && \
-    mkdir -p "$SITE/transforms" && \
-    echo "from torchvision.transforms.functional import *" > "$SITE/transforms/functional_tensor.py" && \
-    echo "Created functional_tensor.py shim at $SITE/transforms/"
+# torchvision is installed as the LAST pip step (after HDRTVDM below)
+# to prevent any pip resolver from silently evicting the +cu128 wheel.
 
 # Fix basicsr: _no_grad_trunc_normal_ import may be removed in newer torch
 RUN find / -path "*/basicsr/archs/arch_util.py" -exec \
@@ -113,6 +103,18 @@ RUN git clone https://github.com/AndreGuo/HDRTVDM /workspace/hdrtvdm && \
 
 COPY src/models_hdrtvdm.py /workspace/hdrtvdm/models_hdrtvdm.py
 ENV PYTHONPATH="/workspace/hdrtvdm"
+
+# ─── torchvision (MUST be last pip install) ──────────────────────────────────
+# torch 2.9.1+cu128 is pre-installed in the base image.
+# Install torchvision AFTER every other pip step so nothing can evict it.
+# --no-deps prevents pip from pulling a CPU-only torch alongside it.
+RUN pip install --no-cache-dir --no-deps torchvision==0.24.1+cu128 \
+    --index-url https://download.pytorch.org/whl/cu128 && \
+    python3 -c "import torchvision; print(f'torchvision {torchvision.__version__} installed')" && \
+    SITE=$(python3 -c "import torchvision,os; print(os.path.dirname(torchvision.__file__))") && \
+    mkdir -p "$SITE/transforms" && \
+    echo "from torchvision.transforms.functional import *" > "$SITE/transforms/functional_tensor.py" && \
+    echo "Created functional_tensor.py shim at $SITE/transforms/"
 
 # ─── Project files ────────────────────────────────────────────────────────────
 
