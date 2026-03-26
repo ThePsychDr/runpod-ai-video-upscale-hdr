@@ -45,7 +45,7 @@ except ImportError:
 
 # ─── Startup: runs once when container starts (included in FlashBoot snapshot)
 
-_VERSION = "v1.0.0"
+_VERSION = "v1.0.7"
 
 print("=" * 50)
 print(f"  AI Upscale & HDR Pipeline — Serverless Worker {_VERSION}")
@@ -163,11 +163,6 @@ def _build_cmd(input_path, output_path, job_input):
         cmd.extend(["--start-time", str(job_input["start_time"])])
     if "chunk_duration" in job_input:
         cmd.extend(["--duration", str(job_input["chunk_duration"])])
-
-    if "batch" not in job_input:
-        cmd.extend(["--batch", "4"])
-    if "workers" not in job_input:
-        cmd.extend(["--workers", "16"])
 
     return cmd
 
