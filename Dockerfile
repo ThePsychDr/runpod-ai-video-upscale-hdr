@@ -81,15 +81,15 @@ RUN pip install --no-cache-dir --no-deps \
 # to prevent any pip resolver from silently evicting the +cu128 wheel.
 
 # Fix basicsr: _no_grad_trunc_normal_ import may be removed in newer torch
-RUN find / -path "*/basicsr/archs/arch_util.py" -exec \
+RUN find /usr -path "*/basicsr/archs/arch_util.py" -exec \
     python3 -c "import sys; p=sys.argv[1]; t=open(p).read(); \
     t=t.replace('from torch.nn.init import _no_grad_trunc_normal_', \
     'try:\\n    from torch.nn.init import _no_grad_trunc_normal_\\nexcept ImportError:\\n    from torch.nn.init import trunc_normal_ as _no_grad_trunc_normal_'); \
-    open(p,'w').write(t)" {} \;
+    open(p,'w').write(t)" {} \; 2>/dev/null || true
 
 # Fix facexlib: pretrained= parameter deprecated in torchvision 0.13+
-RUN find / -path "*/facexlib/detection/retinaface.py" -exec \
-    sed -i 's/models\.resnet50(pretrained=False)/models.resnet50(weights=None)/' {} \;
+RUN find /usr -path "*/facexlib/detection/retinaface.py" -exec \
+    sed -i 's/models\.resnet50(pretrained=False)/models.resnet50(weights=None)/' {} \; 2>/dev/null || true
 
 ENV PYTHONWARNINGS="ignore::FutureWarning"
 
