@@ -83,9 +83,7 @@ ENV PYTHONWARNINGS="ignore::FutureWarning"
 
 RUN pip install --no-cache-dir einops
 
-RUN git clone https://github.com/AndreGuo/HDRTVDM /workspace/hdrtvdm && \
-    cd /workspace/hdrtvdm && \
-    pip install --no-cache-dir -r requirements.txt 2>/dev/null || true
+RUN git clone https://github.com/AndreGuo/HDRTVDM /workspace/hdrtvdm
 
 COPY src/models_hdrtvdm.py /workspace/hdrtvdm/models_hdrtvdm.py
 ENV PYTHONPATH="/workspace/hdrtvdm"
@@ -96,7 +94,11 @@ ENV PYTHONPATH="/workspace/hdrtvdm"
 # --no-deps prevents pip from pulling a CPU-only torch alongside it.
 RUN pip install --no-cache-dir --no-deps torchvision==0.24.1+cu128 \
     --index-url https://download.pytorch.org/whl/cu128 && \
-    python3 -c "import torchvision; print(f'torchvision {torchvision.__version__} installed')" && \
+    pip show torchvision && \
+    python3 -c "import sys; print('sys.path:', sys.path)"
+
+# Verify torchvision + create functional_tensor shim (separate RUN to flush pip caches)
+RUN python3 -c "import torchvision; print(f'torchvision {torchvision.__version__} installed')" && \
     SITE=$(python3 -c "import torchvision,os; print(os.path.dirname(torchvision.__file__))") && \
     mkdir -p "$SITE/transforms" && \
     echo "from torchvision.transforms.functional import *" > "$SITE/transforms/functional_tensor.py" && \
