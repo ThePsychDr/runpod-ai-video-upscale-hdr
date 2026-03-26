@@ -77,24 +77,6 @@ RUN pip install --no-cache-dir --no-deps \
     runpod \
     boto3
 
-# torchvision is installed as the LAST pip step (after HDRTVDM below)
-# to prevent any pip resolver from silently evicting the +cu128 wheel.
-
-# Fix basicsr: _no_grad_trunc_normal_ import may be removed in newer torch
-RUN python3 -c "\
-import basicsr.archs.arch_util as m; import os; p=m.__file__; \
-t=open(p).read(); \
-t=t.replace('from torch.nn.init import _no_grad_trunc_normal_', \
-'try:\n    from torch.nn.init import _no_grad_trunc_normal_\nexcept ImportError:\n    from torch.nn.init import trunc_normal_ as _no_grad_trunc_normal_'); \
-open(p,'w').write(t); print(f'Patched {p}')"
-
-# Fix facexlib: pretrained= parameter deprecated in torchvision 0.13+
-RUN python3 -c "\
-import facexlib.detection.retinaface as m; import os; p=m.__file__; \
-t=open(p).read(); \
-t=t.replace('models.resnet50(pretrained=False)', 'models.resnet50(weights=None)'); \
-open(p,'w').write(t); print(f'Patched {p}')"
-
 ENV PYTHONWARNINGS="ignore::FutureWarning"
 
 # ─── HDRTVDM ─────────────────────────────────────────────────────────────────
@@ -119,6 +101,23 @@ RUN pip install --no-cache-dir --no-deps torchvision==0.24.1+cu128 \
     mkdir -p "$SITE/transforms" && \
     echo "from torchvision.transforms.functional import *" > "$SITE/transforms/functional_tensor.py" && \
     echo "Created functional_tensor.py shim at $SITE/transforms/"
+
+# ─── Patch dependencies (must run AFTER torchvision is installed) ────────────
+
+# Fix basicsr: _no_grad_trunc_normal_ removed in newer torch
+RUN python3 -c "\
+import basicsr.archs.arch_util as m; import os; p=m.__file__; \
+t=open(p).read(); \
+t=t.replace('from torch.nn.init import _no_grad_trunc_normal_', \
+'try:\n    from torch.nn.init import _no_grad_trunc_normal_\nexcept ImportError:\n    from torch.nn.init import trunc_normal_ as _no_grad_trunc_normal_'); \
+open(p,'w').write(t); print(f'Patched {p}')"
+
+# Fix facexlib: pretrained= parameter deprecated in torchvision 0.13+
+RUN python3 -c "\
+import facexlib.detection.retinaface as m; import os; p=m.__file__; \
+t=open(p).read(); \
+t=t.replace('models.resnet50(pretrained=False)', 'models.resnet50(weights=None)'); \
+open(p,'w').write(t); print(f'Patched {p}')"
 
 # ─── Project files ────────────────────────────────────────────────────────────
 
