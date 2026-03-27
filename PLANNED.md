@@ -8,7 +8,7 @@
 
 ## TensorRT Acceleration (private builds only)
 
-TRT engines are GPU-architecture-specific — an engine built on Ada (4090) won't run on Hopper (H100) or Ampere (A40). Since serverless assigns arbitrary GPU types, TRT acceleration is not viable for public Hub releases. TRT support is available in the [private build](https://github.com/ThePsychDr/AI-upscale-and-HDR) for fixed-GPU deployments (pods, local).
+TRT engines are GPU-architecture-specific — an engine built on Ada (4090) won't run on Hopper (H100) or Ampere (A40). Since serverless assigns arbitrary GPU types, TRT acceleration is not viable for public Hub releases. TRT support is being testeded on fixed-GPU deployments (pods, local).
 
 ## Future
 
