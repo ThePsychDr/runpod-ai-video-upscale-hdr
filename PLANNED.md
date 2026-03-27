@@ -6,6 +6,10 @@
 - **`highlight_boost` documentation** — specular highlight expansion for HDR pop (already implemented, needs docs + recommended defaults)
 - **`temporal_smooth` tuning** — reduced from 0.4 to 0.1 for more responsive scene transitions while avoiding brightness pumping
 
+## TensorRT Acceleration (private builds only)
+
+TRT engines are GPU-architecture-specific — an engine built on Ada (4090) won't run on Hopper (H100) or Ampere (A40). Since serverless assigns arbitrary GPU types, TRT acceleration is not viable for public Hub releases. TRT support is available in the [private build](https://github.com/ThePsychDr/AI-upscale-and-HDR) for fixed-GPU deployments (pods, local).
+
 ## Future
 
 - **Multi-worker chunk splitting** — automatic job splitting across workers for parallel processing of long videos
