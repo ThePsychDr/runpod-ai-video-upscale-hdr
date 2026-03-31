@@ -43,11 +43,10 @@ RUN git clone --branch n7.1 --depth 1 https://git.ffmpeg.org/ffmpeg.git /tmp/ffm
     PKG_CONFIG_PATH="/usr/local/lib/pkgconfig" ./configure \
         --enable-gpl \
         --enable-nonfree \
-        --enable-cuda-nvcc \
+        --enable-cuda \
         --enable-cuvid \
         --enable-nvenc \
         --enable-nvdec \
-        --enable-libnpp \
         --enable-libx264 \
         --enable-libx265 \
         --extra-cflags="-I/usr/local/cuda/include" \
