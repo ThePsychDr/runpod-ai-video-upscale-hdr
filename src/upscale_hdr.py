@@ -1088,32 +1088,86 @@ def _itm_guide(model, normalized, h, w, guide_size=960):
     return np.clip(output, 0, 1)
 
 
-def run_itm(model, frame_bgr, is_full_range=False, tile_size=512, overlap=64):
+def _itm_tiled(model, rgb_u8, is_full_range, h, w, tile_size=960, overlap=64):
+    """Tiled HDRTVDM inference — splits frame into overlapping tiles, blends seams.
+
+    Used when full-frame direct inference OOMs (4K on 24GB GPUs).
+    Same quality as direct — runs actual model on every pixel.
+    """
+    step = tile_size - overlap
+    output = np.zeros((h, w, 3), dtype=np.float64)
+    weights = np.zeros((h, w, 1), dtype=np.float64)
+
+    for y in range(0, h, step):
+        for x in range(0, w, step):
+            # Extract tile with boundary clamping
+            y2 = min(y + tile_size, h)
+            x2 = min(x + tile_size, w)
+            y1 = max(y2 - tile_size, 0)
+            x1 = max(x2 - tile_size, 0)
+
+            tile = rgb_u8[y1:y2, x1:x2]
+            th, tw = tile.shape[:2]
+
+            result = _itm_direct(model, tile, is_full_range, th, tw)
+            if result is None:
+                return None  # even tiles OOM — caller falls back to guide
+
+            # Build linear blend weight mask (ramp in overlap regions)
+            w_mask = np.ones((th, tw, 1), dtype=np.float64)
+
+            # Horizontal ramp
+            if x1 > 0 and overlap > 0:
+                ramp = np.linspace(0, 1, min(overlap, tw)).reshape(1, -1, 1)
+                w_mask[:, :ramp.shape[1], :] *= ramp
+            if x2 < w and overlap > 0:
+                ramp = np.linspace(1, 0, min(overlap, tw)).reshape(1, -1, 1)
+                w_mask[:, -ramp.shape[1]:, :] *= ramp
+
+            # Vertical ramp
+            if y1 > 0 and overlap > 0:
+                ramp = np.linspace(0, 1, min(overlap, th)).reshape(-1, 1, 1)
+                w_mask[:ramp.shape[0], :, :] *= ramp
+            if y2 < h and overlap > 0:
+                ramp = np.linspace(1, 0, min(overlap, th)).reshape(-1, 1, 1)
+                w_mask[-ramp.shape[0]:, :, :] *= ramp
+
+            output[y1:y2, x1:x2] += result * w_mask
+            weights[y1:y2, x1:x2] += w_mask
+
+    # Normalize by accumulated weights
+    weights = np.maximum(weights, 1e-8)
+    return output / weights
+
+
+def run_itm(model, frame_bgr, is_full_range=False, tile_size=960, overlap=64):
     """
     HDRTVDM inverse tone mapping.
     Input:  BGR uint8, limited or full range depending on source
     Output: RGB uint16 [0,65535] -- HDR10 ready
 
-    Strategy: try full-frame direct inference first (best quality).
-    If OOM, fall back to guide-based ratio transfer (no tiling seams).
-
-    Direct path uses GPU normalization (normalize_frame_cuda) to avoid
-    CPU float32 conversion. Fallback path uses CPU normalization since
-    it needs numpy for gain map computation.
+    Strategy:
+    1. Try full-frame direct inference (best quality, fastest)
+    2. If OOM, try tiled inference (same quality, fits in 24GB VRAM)
+    3. If tiled also fails, fall back to guide-based ratio transfer
     """
     rgb = frame_bgr[..., ::-1].copy()                    # BGR → RGB, contiguous
     h, w, c = rgb.shape
 
     # Try direct full-frame first (best quality, no artifacts)
-    # _itm_direct normalizes on GPU via normalize_frame_cuda
     result = _itm_direct(model, rgb, is_full_range, h, w)
     if result is not None:
         return (result * 65535).astype(np.uint16)
 
-    # OOM fallback: guide-based ratio transfer (seamless, slightly less detail)
-    # Uses CPU normalization since gain map computation needs numpy
+    # OOM: try tiled inference (same quality, GPU-accelerated)
+    print(f"  ITM: OOM at {w}x{h}, trying tiled inference ({tile_size}px tiles)")
+    result = _itm_tiled(model, rgb, is_full_range, h, w, tile_size, overlap)
+    if result is not None:
+        return (np.clip(result, 0, 1) * 65535).astype(np.uint16)
+
+    # Tiled also failed — guide-based ratio transfer (slowest, always works)
     normalized = normalize_frame(rgb, is_full_range)
-    print(f"  ITM: OOM at {w}x{h}, using guide-based ratio transfer")
+    print(f"  ITM: tiled OOM, using guide-based ratio transfer")
     result = _itm_guide(model, normalized, h, w, guide_size=960)
     return (result * 65535).astype(np.uint16)
 
