@@ -1,3 +1,33 @@
 {
-  "tests": []
+  "tests": [
+    {
+      "name": "test_model_loading",
+      "input": {
+        "test_mode": true
+      },
+      "timeout": 30000
+    }
+  ],
+  "config": {
+    "gpuTypeId": "NVIDIA GeForce RTX 3090",
+    "gpuCount": 1,
+    "env": [
+      {
+        "key": "BUCKET_ENDPOINT_URL",
+        "value": "https://test.example.com"
+      },
+      {
+        "key": "BUCKET_ACCESS_KEY_ID",
+        "value": "test"
+      },
+      {
+        "key": "BUCKET_ACCESS_KEY_SECRET",
+        "value": "test"
+      },
+      {
+        "key": "BUCKET_NAME",
+        "value": "test"
+      }
+    ]
+  }
 }
