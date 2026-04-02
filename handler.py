@@ -210,7 +210,7 @@ def _download_from_r2(video_url, job_id):
     endpoint = os.environ.get("BUCKET_ENDPOINT_URL", "")
     access_key = os.environ.get("BUCKET_ACCESS_KEY_ID", "")
     secret_key = os.environ.get("BUCKET_ACCESS_KEY_SECRET", "")
-    bucket = os.environ.get("BUCKET_NAME", "upscale-hdr-io")
+    bucket = os.environ.get("BUCKET_NAME", "")
 
     parsed = urllib.parse.urlparse(video_url)
     path = parsed.path.lstrip("/")
@@ -391,7 +391,7 @@ def handler(job):
 
         bucket_creds = _get_bucket_creds(job_input)
         if bucket_creds:
-            bucket_name = os.environ.get("BUCKET_NAME", "upscale-hdr-io")
+            bucket_name = os.environ.get("BUCKET_NAME", "")
             presigned_url = upload_file_to_bucket(
                 file_name=os.path.basename(output_path),
                 file_location=output_path,
