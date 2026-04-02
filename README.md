@@ -249,6 +249,7 @@ This worker code is released under the MIT License. Model weights are subject to
 
 | Version | Change |
 |---------|--------|
+| v1.7.6 | x265 threading optimization for HDR10/HDR10+ encoding — `pools=N:wpp=1:lookahead-slices=4` for 1.5-3x faster CPU encode |
 | v1.7.5 | Add output modes section (SDR/HDR10/HDR10+), `hdr_mode: sdr` API option, fix deploy badge, fix hardcoded MaxCLL/MaxFALL in docs |
 | v1.7.4 | Add GitHub Actions workflow for Docker build & push to Docker Hub |
 | v1.7.3 | Use `ADA_24` pool tier ID for Hub tests (replaces legacy GPU name) |

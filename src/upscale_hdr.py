@@ -1601,6 +1601,7 @@ def encode_sdr(out_w, out_h, fps, output_path, crf=18, preset="p7"):
             "-c:v", "libx265",
             "-preset", x265_preset,
             "-crf", str(crf),
+            "-x265-params", f"pools={os.cpu_count() or 8}:wpp=1:lookahead-slices=4",
             "-pix_fmt", "yuv420p",
             output_path,
         ]
@@ -1612,8 +1613,9 @@ def _build_x265_hdr10_params(max_cll=1000, max_fall=400, extra_params=None):
     Build x265 params string with HDR10 static metadata.
 
     libx265 is the only FFmpeg encoder that can inject MaxCLL/MaxFALL and
-    mastering display SEI messages directly into the HEVC bitstream.
-    NVENC (hevc_nvenc) does not support HDR metadata injection.
+    mastering display SEI messages into the HEVC bitstream. NVENC's hevc_nvenc
+    does not expose HDR metadata injection as CLI options in any released
+    FFmpeg version.
     """
     # Mastering display: BT.2020 primaries, D65 white point
     # Format: G(x,y)B(x,y)R(x,y)WP(x,y)L(max,min)
@@ -1626,7 +1628,12 @@ def _build_x265_hdr10_params(max_cll=1000, max_fall=400, extra_params=None):
         f"L({max(max_cll, 1000) * 10000},50)"
     )
 
+    _cpu = os.cpu_count() or 8
     parts = [
+        f"pools={_cpu}",
+        "frame-threads=0",
+        "wpp=1",
+        "lookahead-slices=4",
         "hdr-opt=1",
         "repeat-headers=1",
         "colorprim=bt2020",
