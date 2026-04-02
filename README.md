@@ -111,7 +111,7 @@ Input videos are read from the bucket via `video_url`. Output is uploaded to `ou
 | `face_strength` | float | 0.5 | Face restoration blend (0.0 = aggressive, 1.0 = bypass) |
 | `no_face` | bool | false | Skip face restoration |
 | `no_itm` | bool | false | Output SDR — skip HDR tone mapping entirely |
-| `hdr_mode` | string | hdr10 | HDR output mode (`hdr10`, `hdr10plus`) |
+| `hdr_mode` | string | hdr10 | Output mode: `sdr`, `hdr10`, `hdr10plus`. Setting `sdr` is equivalent to `no_itm: true` |
 | `itm` | string | params_3DM | HDR checkpoint (`params_3DM`, `params_DaVinci`) |
 | `crf` | int | 18 | Encoder quality (0–51, lower = better) |
 | `preset` | string | p7 | Encoder preset (p1–p7, p7 = best quality) |
