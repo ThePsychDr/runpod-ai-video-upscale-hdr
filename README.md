@@ -2,7 +2,7 @@
 
 [![Deploy on RunPod](https://badge.runpod.io/deploy.svg)](https://www.runpod.io/console/hub/ThePsychDr/runpod-ai-video-upscale-hdr)
 
-Four-stage GPU pipeline for video enhancement:
+Four-stage GPU pipeline for video upscaling and enhancement. Outputs SDR, HDR10, or HDR10+.
 
 1. **Denoise** — Real-ESRGAN artifact cleanup at source resolution
 2. **Upscale** — RealESRGAN_x4plus adaptive upscale (up to 4K)
