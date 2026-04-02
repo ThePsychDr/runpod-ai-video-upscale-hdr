@@ -24,7 +24,7 @@ Job input schema:
     "preserve_grain": false,              # optional
     "grain_strength": 1.0,                # optional
     "highlight_boost": 0.0,              # optional, 0.0-1.0 (specular highlight expansion)
-    "temporal_smooth": 0.4,              # optional, reduce frame-to-frame flicker
+    "temporal_smooth": 0.15,             # optional, reduce frame-to-frame flicker
     "batch": 4,                           # optional, ITM batch size
     "workers": 16,                        # optional, decode threads
     "test_mode": false                    # optional — Hub test mode
