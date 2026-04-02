@@ -208,6 +208,7 @@ This worker code is released under the MIT License. Model weights are subject to
 
 | Version | Change |
 |---------|--------|
+| v1.7.4 | Add GitHub Actions workflow for Docker build & push to Docker Hub |
 | v1.7.3 | Use `ADA_24` pool tier ID for Hub tests (replaces legacy GPU name) |
 | v1.7.2 | Repo consolidation release — remove CACHEBUST ARG, revert test config to proven RTX 4090 settings, fix `no_denoise` flag, update docs |
 | v1.7.1 | NVENC two-pass encode (last release on `runpod-video-upscale-hdr`) |
