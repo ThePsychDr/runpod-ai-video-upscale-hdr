@@ -70,20 +70,16 @@ RUN git clone --branch n7.1 --depth 1 https://git.ffmpeg.org/ffmpeg.git /tmp/ffm
 # fallback there — HDR10+ mode always uses libx265 because of the dhdr10-info
 # requirement.
 #
-# Install from rigaya's official .deb package (avoids cmake/make, submodules,
-# and libav* linkage conflicts with the from-source ffmpeg above). The package
-# installs the binary as /usr/bin/nvencc — we symlink to NVEncC64 to match the
-# binary name the upscale_hdr.py probe looks for. apt-get install -f handles
-# any missing transitive deps from the .deb.
+# Installed from rigaya's official .deb package. Verified via deb inspection:
+#   - Binary: /usr/bin/nvencc (statically linked)
+#   - Depends: libc6 (>=2.31)  — already satisfied by ubuntu2204 base
+# So no `apt-get install -f` fallback needed. Symlink to NVEncC64 so the
+# upscale_hdr.py _has_nvencc() probe and handler.py startup log find it.
 RUN wget -q -O /tmp/nvencc.deb \
     https://github.com/rigaya/NVEnc/releases/download/9.14/nvencc_9.14_amd64.deb && \
-    apt-get update && \
-    (dpkg -i /tmp/nvencc.deb || apt-get install -f -y) && \
-    rm -rf /tmp/nvencc.deb /var/lib/apt/lists/* && \
-    NVENCC_BIN=$(find /usr -type f \( -name 'NVEncC64' -o -name 'NVEncC' -o -name 'nvencc' \) 2>/dev/null | head -1) && \
-    echo "Found NVEncC at: $NVENCC_BIN" && \
-    test -n "$NVENCC_BIN" && \
-    ln -sf "$NVENCC_BIN" /usr/local/bin/NVEncC64 && \
+    dpkg -i /tmp/nvencc.deb && \
+    rm /tmp/nvencc.deb && \
+    ln -sf /usr/bin/nvencc /usr/local/bin/NVEncC64 && \
     NVEncC64 --version | head -1
 
 # ─── Python dependencies ──────────────────────────────────────────────────────
