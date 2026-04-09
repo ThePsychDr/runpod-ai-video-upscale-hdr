@@ -2,7 +2,7 @@
 
 ## Implemented
 
-### v1.7.7 — HDR Mastering Metadata Export
+### v1.7.8 — HDR Mastering Metadata Export
 
 - **`export_metadata` flag** — writes HDR metadata sidecar files alongside the output for mastering workflows in DaVinci Resolve / manual x265 grading
   - `<name>_metadata.csv` — per-frame luminance stats (max_nits, avg_nits, percentiles p1/p5/p10/p25/p50/p75/p90/p95/p99) with MaxCLL/MaxFALL summary line
