@@ -80,6 +80,22 @@ try:
 except Exception:
     pass
 
+# Check for NVEncC (rigaya's standalone NVENC encoder with HDR10 SEI support).
+# When available, upscale_hdr.py routes HDR10 encode through NVEncC for GPU-
+# accelerated encode. Falls back to libx265 (CPU) on missing binary or failure.
+for _nvencc_bin in ("NVEncC64", "NVEncC", "nvencc"):
+    try:
+        _r = subprocess.run([_nvencc_bin, "--version"],
+                            capture_output=True, text=True, timeout=5)
+        if _r.returncode == 0:
+            _nvencc_ver = _r.stdout.strip().split("\n")[0]
+            print(f"  NVEncC: {_nvencc_ver}")
+            break
+    except FileNotFoundError:
+        continue
+else:
+    print("  NVEncC: not found — HDR10 will use libx265 (CPU) fallback")
+
 
 def _sanitize_filename(name):
     """Remove chars that break FFmpeg subprocess calls."""

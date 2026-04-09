@@ -1572,6 +1572,103 @@ def _has_nvdec():
     except Exception:
         return False
 
+
+def _has_nvencc():
+    """Check if NVEncC is available (rigaya's standalone NVENC encoder with HDR10 SEI support)."""
+    for binary in ("NVEncC64", "NVEncC", "nvencc"):
+        try:
+            r = subprocess.run([binary, "--version"],
+                               capture_output=True, text=True, timeout=5)
+            if r.returncode == 0:
+                return binary
+        except FileNotFoundError:
+            continue
+    return None
+
+
+def encode_hdr10_nvencc(out_w, out_h, fps, raw_frames_path, output_path,
+                        crf=18, preset="p7", max_cll=1000, max_fall=400):
+    """
+    GPU-accelerated HDR10 encode using NVEncC (rigaya's standalone NVENC encoder).
+
+    NVEncC supports --master-display and --max-cll for HDR10 SEI metadata
+    injection directly into the HEVC bitstream — unlike FFmpeg's hevc_nvenc
+    which cannot inject HDR metadata. Much faster than libx265 CPU encoding.
+
+    Pipeline: ffmpeg (rgb48le → yuv420p10le colorspace convert) → pipe → NVEncC → output
+
+    Returns the NVEncC subprocess.Popen object (with returncode set).
+    Caller should check returncode and fall back to libx265 on failure.
+    """
+    nvencc_bin = _has_nvencc()
+    if nvencc_bin is None:
+        raise RuntimeError("NVEncC binary not found on PATH")
+
+    # Mastering display: BT.2020 primaries, D65 white point
+    master_display = (
+        "G(13250,34500)"
+        "B(7500,3000)"
+        "R(34000,16000)"
+        "WP(15635,16450)"
+        f"L({max(max_cll, 1000) * 10000},50)"
+    )
+
+    # Map NVENC preset to NVEncC quality level
+    nvencc_preset_map = {
+        "p1": "performance", "p2": "performance", "p3": "default",
+        "p4": "default", "p5": "quality", "p6": "quality", "p7": "quality",
+    }
+    nvencc_preset = nvencc_preset_map.get(preset, "quality")
+
+    # Step 1: ffmpeg converts rgb48le → yuv420p10le and pipes to NVEncC
+    ffmpeg_cmd = [
+        "ffmpeg", "-y",
+        "-f", "rawvideo", "-vcodec", "rawvideo",
+        "-s", f"{out_w}x{out_h}",
+        "-pix_fmt", "rgb48le",
+        "-r", str(fps), "-i", str(raw_frames_path),
+        "-pix_fmt", "yuv420p10le",
+        "-f", "yuv4mpegpipe", "-strict", "-1", "-",
+    ]
+
+    # Step 2: NVEncC encodes with HDR10 metadata
+    nvencc_cmd = [
+        nvencc_bin,
+        "--y4m", "-i", "-",
+        "--codec", "hevc",
+        "--preset", nvencc_preset,
+        "--qp", str(crf),
+        "--output-depth", "10",
+        "--colorprim", "bt2020",
+        "--transfer", "smpte2084",
+        "--colormatrix", "bt2020nc",
+        "--master-display", master_display,
+        "--max-cll", f"{max_cll},{max_fall}",
+        "--repeat-headers",
+        "-o", str(output_path),
+    ]
+
+    print(f"  [ENCODE] NVEncC HDR10 (GPU) — {nvencc_preset}, QP {crf}, "
+          f"{max_cll}/{max_fall} nits")
+
+    ffmpeg_proc = subprocess.Popen(
+        ffmpeg_cmd, stdout=subprocess.PIPE, stderr=subprocess.DEVNULL)
+    nvencc_proc = subprocess.Popen(
+        nvencc_cmd, stdin=ffmpeg_proc.stdout, stderr=subprocess.PIPE, text=True)
+    ffmpeg_proc.stdout.close()  # allow SIGPIPE if NVEncC exits early
+
+    _, nvencc_stderr = nvencc_proc.communicate()
+    ffmpeg_proc.wait()
+
+    if nvencc_proc.returncode != 0:
+        print(f"  [ENCODE ERROR] NVEncC failed (exit code {nvencc_proc.returncode})")
+        if nvencc_stderr:
+            print(f"  stderr: {nvencc_stderr[-500:]}")
+    return nvencc_proc
+
+
+_NVENCC_BINARY = _has_nvencc()
+
 _NVDEC_AVAILABLE = _has_nvdec()
 
 
@@ -2404,18 +2501,41 @@ def run_pipeline(input_path, output_path, args):
                 print(f"  [ERROR] Raw frame buffer is empty — no frames were written!")
 
             if hdr_mode == "hdr10":
-                print(f"\n  Encoding HDR10 with MaxCLL={hdr_collector.max_cll}, "
-                      f"MaxFALL={hdr_collector.max_fall}...")
-
-                encode_hdr10_static_twopass(
-                    out_w, out_h, fps,
-                    raw_frames_path=str(raw_temp),
-                    output_path=str(output_path),
-                    crf=args.crf,
-                    preset=args.preset,
-                    max_cll=hdr_collector.max_cll,
-                    max_fall=hdr_collector.max_fall,
-                )
+                if _NVENCC_BINARY:
+                    print(f"\n  Encoding HDR10 with NVEncC (GPU) — "
+                          f"MaxCLL={hdr_collector.max_cll}, MaxFALL={hdr_collector.max_fall}...")
+                    result = encode_hdr10_nvencc(
+                        out_w, out_h, fps,
+                        raw_frames_path=str(raw_temp),
+                        output_path=str(output_path),
+                        crf=args.crf,
+                        preset=args.preset,
+                        max_cll=hdr_collector.max_cll,
+                        max_fall=hdr_collector.max_fall,
+                    )
+                    if result.returncode != 0:
+                        print(f"  [FALLBACK] NVEncC failed, retrying with libx265 (CPU)...")
+                        encode_hdr10_static_twopass(
+                            out_w, out_h, fps,
+                            raw_frames_path=str(raw_temp),
+                            output_path=str(output_path),
+                            crf=args.crf,
+                            preset=args.preset,
+                            max_cll=hdr_collector.max_cll,
+                            max_fall=hdr_collector.max_fall,
+                        )
+                else:
+                    print(f"\n  Encoding HDR10 with libx265 (CPU) — "
+                          f"MaxCLL={hdr_collector.max_cll}, MaxFALL={hdr_collector.max_fall}...")
+                    encode_hdr10_static_twopass(
+                        out_w, out_h, fps,
+                        raw_frames_path=str(raw_temp),
+                        output_path=str(output_path),
+                        crf=args.crf,
+                        preset=args.preset,
+                        max_cll=hdr_collector.max_cll,
+                        max_fall=hdr_collector.max_fall,
+                    )
                 print(f"  Done! {processed} frames -> {output_path}")
 
             elif hdr_mode == "hdr10plus":

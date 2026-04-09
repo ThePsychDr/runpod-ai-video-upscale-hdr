@@ -28,6 +28,8 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     nasm \
     yasm \
     pkg-config \
+    cmake \
+    build-essential \
     libx264-dev \
     libx265-dev \
     libnuma-dev \
@@ -59,6 +61,24 @@ RUN git clone --branch n7.1 --depth 1 https://git.ffmpeg.org/ffmpeg.git /tmp/ffm
     make install && \
     ldconfig && \
     rm -rf /tmp/ffmpeg-src
+
+# ─── NVEncC (rigaya) — GPU HDR10 encoder with SEI metadata injection ─────────
+# NVEncC can inject --master-display and --max-cll SEI into the HEVC bitstream,
+# unlike FFmpeg's hevc_nvenc which does not expose those options. Used for GPU-
+# accelerated HDR10 encoding on any RunPod GPU with NVENC hardware (Ada, Ampere
+# consumer, Hopper with NVENC). At runtime, upscale_hdr.py auto-detects the
+# NVEncC64 binary on PATH and falls back to libx265 (CPU) if it's missing or
+# the encode fails. A100 has no NVENC hardware, so it'll always use the libx265
+# fallback there — HDR10+ mode always uses libx265 because of the dhdr10-info
+# requirement.
+RUN git clone --branch 7.85 --depth 1 https://github.com/rigaya/NVEnc.git /tmp/NVEnc && \
+    cd /tmp/NVEnc && \
+    mkdir build && cd build && \
+    cmake -DCMAKE_BUILD_TYPE=Release .. && \
+    make -j$(nproc) && \
+    cp nvencc /usr/local/bin/NVEncC64 && \
+    rm -rf /tmp/NVEnc && \
+    NVEncC64 --version | head -1
 
 # ─── Python dependencies ──────────────────────────────────────────────────────
 

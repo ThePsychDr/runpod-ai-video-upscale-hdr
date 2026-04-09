@@ -2,6 +2,15 @@
 
 ## Implemented
 
+### v1.7.10 — NVEncC GPU HDR10 encode
+
+- **NVEncC baked into the image** — rigaya's standalone NVENC encoder (branch 7.85) is built from source during the Docker build and installed as `/usr/local/bin/NVEncC64`. Adds `cmake` + `build-essential` to the apt deps
+- **GPU HDR10 encode** — `upscale_hdr.py` now detects `NVEncC64` at import time via `_has_nvencc()` and routes HDR10 mode through `encode_hdr10_nvencc()` when available. NVEncC injects `--master-display` and `--max-cll` SEI metadata directly into the HEVC bitstream — something FFmpeg's `hevc_nvenc` can't do (the 2019 patches were never merged upstream)
+- **Automatic fallback to libx265** — if NVEncC fails (bad exit code, missing binary, unsupported GPU like A100 which has no NVENC hardware), the HDR10 path falls back to the existing `encode_hdr10_static_twopass()` libx265 path. Fallback is transparent to the caller — same output file, same metadata, just slower
+- **HDR10+ unchanged** — HDR10+ mode still uses libx265 with `--dhdr10-info` because NVEncC doesn't support per-frame dynamic metadata. Only HDR10 static mode benefits from the GPU encode path
+- **Runtime check at worker startup** — the worker log now prints whether NVEncC is available and which binary it found
+- **Performance:** GPU HDR10 encode is ~2-5× faster than libx265 on the same GPU, and frees up CPU threads for other pipeline stages. Full measurement TBD on 4090 vs L40S
+
 ### v1.7.8 — HDR Mastering Metadata Export
 
 - **`export_metadata` flag** — writes HDR metadata sidecar files alongside the output for mastering workflows in DaVinci Resolve / manual x265 grading

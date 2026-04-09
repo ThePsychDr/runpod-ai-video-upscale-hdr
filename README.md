@@ -255,12 +255,17 @@ Per-frame dynamic metadata with bezier curves for scene-by-scene tone mapping. S
 ### Encoding Details
 
 | Mode | Encoder | Metadata | Compatibility |
-|------|---------|----------|---------------|
+|---|---|---|---|
 | SDR | NVENC hevc_nvenc (GPU) or libx265 (CPU fallback) | None | All displays |
-| HDR10 | libx265 10-bit | Static MaxCLL/MaxFALL + mastering display SEI | All HDR displays |
+| HDR10 | **NVEncC (GPU) or libx265 (CPU fallback)** | Static MaxCLL/MaxFALL + mastering display SEI | All HDR displays |
 | HDR10+ | libx265 10-bit | Static + per-frame dynamic bezier curves | Samsung HDR10+ displays (falls back to HDR10 on others) |
 
-HDR modes always use **libx265 software encode** because NVENC cannot inject HDR metadata into the HEVC bitstream. SDR mode uses NVENC when available for faster GPU-accelerated encoding.
+**NVEncC for HDR10** (v1.7.10+): the image ships with [rigaya's NVEncC](https://github.com/rigaya/NVEnc) pre-built. Unlike FFmpeg's `hevc_nvenc` (which doesn't expose `-master_display`/`-max_cll`), NVEncC injects the HDR10 SEI metadata directly into the HEVC bitstream via `--master-display` and `--max-cll`. This gives you GPU-accelerated HDR10 encoding on any RunPod GPU with NVENC hardware.
+
+- **Auto-detected** at worker startup — if `NVEncC64` is on PATH it's used, otherwise the HDR10 path falls back to libx265 (CPU) with the existing two-pass metadata injection
+- **Transparent fallback** — if NVEncC fails mid-encode (bad exit code, driver issue), the worker retries the same raw buffer with libx265 automatically. Same output file, same metadata
+- **GPUs without NVENC** (A100) always fall back to libx265 for HDR10 — NVENC hardware is present on all consumer/workstation Ada+Ampere cards but stripped from compute cards
+- **HDR10+** still uses libx265 because NVEncC doesn't support per-frame dynamic metadata (`--dhdr10-info`)
 
 ## Pipeline Stages
 
@@ -415,7 +420,9 @@ This worker code is released under the MIT License. Model weights are subject to
 
 | Version | Change |
 |---|---|
-| v1.7.8 | **`export_metadata` flag** — write per-frame luminance CSV + HDR10+ JSON sidecar files alongside the output; worker uploads both to R2 and returns `metadata_csv_url` + `hdr10plus_json_url` in the response. Dual-push GHA: Docker Hub + GHCR on release publish |
+| v1.7.10 | **NVEncC baked into the image** — rigaya's standalone NVENC encoder built from source. HDR10 encode now routes through NVEncC when available for GPU-accelerated HDR10 with `--master-display` + `--max-cll` SEI injection. Automatic fallback to libx265 (CPU) on failure or missing binary. HDR10+ mode unchanged |
+| v1.7.9 | Documentation sweep: `allowedCudaVersions: "12.8"` requirement + troubleshooting section + 4K→4K perf notes |
+| v1.7.8 | **`export_metadata` flag** — write per-frame luminance CSV + HDR10+ JSON sidecar files alongside the output; worker uploads both to R2 and returns `metadata_csv_url` + `hdr10plus_json_url` in the response |
 | v1.7.7 | Gradio UI (`ui.py`) for managing serverless endpoints, `.env.example` template, require explicit `BUCKET_NAME` env var, Hub test GPU switched to L40S |
 | v1.7.6 | x265 threading optimization for HDR10/HDR10+ encoding — `pools=N:wpp=1:lookahead-slices=4` for 1.5–3× faster CPU encode |
 | v1.7.5 | Add output modes section (SDR/HDR10/HDR10+), `hdr_mode: sdr` API option, fix deploy badge, fix hardcoded MaxCLL/MaxFALL in docs |
