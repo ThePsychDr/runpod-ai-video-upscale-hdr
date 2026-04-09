@@ -10,6 +10,16 @@ on:
   release:
     types: [published]
 
+# Opt into Node.js 24 for all JavaScript actions in this workflow.
+# Node.js 20 becomes unavailable on GHA runners September 2026 and is
+# already deprecated. actions/checkout@v4, docker/setup-buildx-action@v3,
+# docker/login-action@v3, and docker/build-push-action@v6 all still ship
+# Node 20 runtimes but support Node 24 via this env var. Once newer
+# versions of those actions ship with Node 24 bundled, this env can be
+# removed.
+env:
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: "true"
+
 jobs:
   build:
     runs-on: ubuntu-latest
