@@ -59,6 +59,14 @@ jobs:
           push: true
           platforms: linux/amd64
           tags: ${{ steps.tags.outputs.tags }}
+          # Disable provenance + SBOM attestations.
+          # GHCR rejects the attestation blob push with 403 Forbidden on the
+          # first push to a new package namespace. Docker Hub handles them
+          # fine but we push to both, so the attestation push fails the
+          # whole job. Attestations can be re-enabled once the GHCR package
+          # exists and has explicit write grants.
+          provenance: false
+          sbom: false
           labels: |
             org.opencontainers.image.source=https://github.com/${{ github.repository }}
             org.opencontainers.image.revision=${{ github.sha }}
