@@ -7,6 +7,12 @@ FROM runpod/pytorch:1.0.3-cu1281-torch291-ubuntu2204
 LABEL maintainer="thepsych"
 LABEL description="AI video upscaling pipeline — serverless worker"
 
+# Silence pip's "new release of pip is available" notice during installs.
+# Cosmetic — pip still works fine on its current version. Setting this env
+# var makes pip skip the index self-version check on every invocation,
+# which also makes pip runs marginally faster (one less HTTP request).
+ENV PIP_DISABLE_PIP_VERSION_CHECK=1
+
 # ─── Fix python3 symlink ─────────────────────────────────────────────────────
 # Base image has Python 3.12 (with torch) but python3 resolves to system 3.10.
 # All pip installs go to 3.12, so python3 must point there too.

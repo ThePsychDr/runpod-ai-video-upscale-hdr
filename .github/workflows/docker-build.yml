@@ -25,6 +25,12 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
+      - name: Configure git init default branch
+        # Silences the "Using 'master' as the name for the initial branch"
+        # hint that actions/checkout prints when it runs `git init` without
+        # an explicit init.defaultBranch configured. Harmless but noisy.
+        run: git config --global init.defaultBranch main
+
       - name: Checkout
         uses: actions/checkout@v4
 
